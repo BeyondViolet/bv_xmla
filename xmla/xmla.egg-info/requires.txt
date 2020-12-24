@@ -1,0 +1,5 @@
+olap>=0.3
+zeep
+requests
+lxml
+six
