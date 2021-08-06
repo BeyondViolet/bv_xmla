@@ -3,10 +3,12 @@ Created on 18.04.2012
 
 @author: norman
 '''
+import httpx
+
 from .interfaces import XMLAException
-from zeep import Client, Plugin, xsd
+from zeep import Plugin, AsyncClient
 from zeep.exceptions import Fault
-from zeep.transports import Transport
+from zeep.transports import AsyncTransport
 
 #import types
 from .formatreader import TupleFormatReader, TupleFormatReaderTabular
@@ -97,20 +99,24 @@ class XMLAConnection(object):
             mname = schemaNameToMethodName(schemaName)
             cls.addMethod( mname, getFunc(schemaName) )
 
-    def __init__(self, url, location, sslverify, **kwargs):
+    def __init__(self, url, sslverify, **kwargs):
 
-        if "session" in kwargs:
-            session = kwargs["session"]
-            del kwargs["session"]
-            transport = Transport(session=session)
+        transport = AsyncTransport(verify_ssl=sslverify)
+
+        if "username" in kwargs and "password" in kwargs:
+            auth = (kwargs['username'], kwargs['password'])
         else:
-            transport = Transport()
-            
-        if "auth" in kwargs:
-            transport.session.auth = kwargs["auth"]
-            del kwargs["auth"]
+            auth = None
+        httpx_client = httpx.AsyncClient(auth=auth, verify=sslverify, http2=True)
 
-        transport.session.verify = sslverify
+        transport.client = httpx_client
+        transport.wsdl_client =  httpx.Client(
+            verify=sslverify,
+            proxies=None,
+            timeout=300,
+            auth=auth
+        )
+
         self.sessionplugin=SessionPlugin(self)
         plugins=[self.sessionplugin]
 
@@ -122,12 +128,12 @@ class XMLAConnection(object):
                 plugins.append(LogRequest())
             del kwargs["log"]
             
-        self.client = Client(url, 
+        self.client = AsyncClient(url,
                              transport=transport, 
                              # cache=None, unwrap=False,
                              plugins=plugins)
 
-        self.service = self.client.create_service(ns_name(schema_xmla,"MsXmlAnalysisSoap"), location)
+        self.service = self.client.bind("MsXmlAnalysis", "MsXmlAnalysisSoap")
         self.client.set_ns_prefix(None, schema_xmla)
         # optional, call might fail
         self.getMDSchemaLevels = lambda *args, **kw: self.Discover("MDSCHEMA_LEVELS", 
@@ -146,12 +152,12 @@ class XMLAConnection(object):
     def setSessionId(self, sessionId):
         self.sessionId = sessionId
         
-    def Discover(self, what, restrictions=None, properties=None):
+    async def Discover(self, what, restrictions=None, properties=None):
         rl = as_etree(restrictions, "RestrictionList")
         pl = as_etree(properties, "PropertyList")
         try:
             #import pdb; pdb.set_trace()
-            doc=self.service.Discover(RequestType=what, Restrictions=rl, Properties=pl, _soapheaders=self._soapheaders)
+            doc = await self.service.Discover(RequestType=what, Restrictions=rl, Properties=pl, _soapheaders=self._soapheaders)
             root = fromETree(doc.body["return"]["_value_1"], ns=schema_xmla_rowset)
             res = getattr(root, "row", [])
             if res:
@@ -162,7 +168,7 @@ class XMLAConnection(object):
         return res
 
 
-    def Execute(self, command, dimformat="Multidimensional", 
+    async def Execute(self, command, dimformat="Multidimensional",
                 axisFormat="TupleFormat", **kwargs):
         if isinstance(command, stringtypes):
             command=as_etree({"Statement": command})
@@ -174,7 +180,7 @@ class XMLAConnection(object):
         reader = TupleFormatReader if dimformat == "Multidimensional" else TupleFormatReaderTabular
         try:
             
-            res = self.service.Execute(Command=command, Properties=plist, _soapheaders=self._soapheaders)
+            res = await self.service.Execute(Command=command, Properties=plist, _soapheaders=self._soapheaders)
             root = res.body["return"]["_value_1"]
             cols = None if dimformat == "Multidimensional" else fromETree(root, ns=schema_xml, name="schema")
             rows = fromETree(root, ns=ns)
@@ -183,24 +189,27 @@ class XMLAConnection(object):
             raise XMLAException(fault.message, dictify(fromETree(fault.detail, ns=None)))
         
         
-    def BeginSession(self):
+    async def BeginSession(self):
         bs= self.client.get_element(ns_name(schema_xmla,"BeginSession"))(mustUnderstand=1)
         self.setListenOnSessionId(True)
         cmd = as_etree("Statement")
 
-        self.service.Execute(Command=cmd,_soapheaders={"BeginSession":bs})
+        await self.service.Execute(Command=cmd,_soapheaders={"BeginSession":bs})
         self.setListenOnSessionId(False)
 
         sess= self.client.get_element(ns_name(schema_xmla,"Session"))(SessionId=self.sessionId, mustUnderstand = 1)
         self._soapheaders={"Session":sess}
         
-    def EndSession(self):
+    async def EndSession(self):
         if self.sessionId is not None:
             es= self.client.get_element(ns_name(schema_xmla,"EndSession"))(SessionId=self.sessionId, mustUnderstand = 1)
             cmd = as_etree("Statement")
-            self.service.Execute(Command=cmd, _soapheaders={"EndSession":es})
+            await self.service.Execute(Command=cmd, _soapheaders={"EndSession":es})
             self.setSessionId(None)
             self._soapheaders=None
+
+    async def close(self):
+        await self.client.transport.aclose()
 
                 
 XMLAConnection.setupMembers()

@@ -9,7 +9,8 @@ install_requires=[
     'zeep',
     'requests',
     'lxml',
-    'six'
+    'six',
+    'httpx[http2]'
     ]
 
 setup(

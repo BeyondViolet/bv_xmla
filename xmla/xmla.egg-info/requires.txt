@@ -3,3 +3,4 @@ zeep
 requests
 lxml
 six
+httpx[http2]
