@@ -17,13 +17,33 @@ class TREE_OP(object):
     SELF = 0x08
     DESCENDANTS = 0x10
     ANCESTORS = 0x20
-    
+
+
+class XMLAProviderContextManager:
+    def __init__(self, wsdl_url, **kwargs):
+        self.wsdl_url = wsdl_url
+        self.kwargs = kwargs
+        self.conn = None
+
+    async def __aenter__(self):
+        self.conn = XMLASource(self.wsdl_url, **self.kwargs)
+        return self.conn
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self.conn:
+            await self.conn.close()
+        if exc_val:
+            raise
+
 @zope.interface.implementer(ooi.IProvider)
 class XMLAProvider(object):
-    
-    
-    def connect(self, url=defaultwsdl, sslverify=True, **kwargs):
-        return XMLASource(url, sslverify, **kwargs)
+
+    def __init__(self, wsdl_url, **kwargs):
+        self.wsdl_url = wsdl_url
+        self.kwargs = kwargs
+
+    def connect(self):
+        return XMLAProviderContextManager(self.wsdl_url, **self.kwargs)
 
 
 @zope.interface.implementer(ooi.IOLAPSchemaElement)
@@ -136,7 +156,6 @@ class XMLASource(XMLAConnection, XMLAClass):
                  sslverify=True, **kwargs):
         self.urlwsdl=urlwsdl
         self.sslverify=sslverify
-            
         XMLAClass.__init__(self, None, {}, None, self)
         XMLAConnection.__init__(self, urlwsdl, sslverify, **kwargs)
 

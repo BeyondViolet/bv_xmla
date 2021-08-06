@@ -167,7 +167,6 @@ class XMLAConnection(object):
         #logger.debug( res )
         return res
 
-
     async def Execute(self, command, dimformat="Multidimensional",
                 axisFormat="TupleFormat", **kwargs):
         if isinstance(command, stringtypes):
@@ -188,7 +187,6 @@ class XMLAConnection(object):
         except Fault as fault:
             raise XMLAException(fault.message, dictify(fromETree(fault.detail, ns=None)))
         
-        
     async def BeginSession(self):
         bs= self.client.get_element(ns_name(schema_xmla,"BeginSession"))(mustUnderstand=1)
         self.setListenOnSessionId(True)
@@ -207,6 +205,9 @@ class XMLAConnection(object):
             await self.service.Execute(Command=cmd, _soapheaders={"EndSession":es})
             self.setSessionId(None)
             self._soapheaders=None
+
+    async def connect(self):
+        pass
 
     async def close(self):
         await self.client.transport.aclose()
