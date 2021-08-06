@@ -1,6 +1,0 @@
-olap>=0.3
-zeep
-requests
-lxml
-six
-httpx[http2]

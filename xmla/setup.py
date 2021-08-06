@@ -9,18 +9,16 @@ install_requires=[
     'zeep',
     'requests',
     'lxml',
-    'six',
     'httpx[http2]'
     ]
 
 setup(
-    name='xmla',
+    name='bv_xmla',
     version='0.8.0',
-    url="https://github.com/may-day/olap",
+    url="https://github.com/BeyondViolet/bv_xmla",
     license='Apache Software License 2.0',
     classifiers = [
         "License :: OSI Approved :: Apache Software License",
-        "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 3",
         "Development Status :: 3 - Alpha",
         "Environment :: Web Environment",
@@ -30,12 +28,10 @@ setup(
     description='Access olap data sources through xmla',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    author='Norman Krämer',
-    author_email='kraemer.norman@googlemail.com',
-    packages=['olap', 'olap.xmla'],
-    namespace_packages=['olap'],
-    package_dir={'olap':'olap', 'olap.xmla': 'olap/xmla'},
-    package_data={'olap.xmla': ['vs.wsdl']},
+    author='Norman Krämer, Alexey Gornostaev',
+    author_email='kreopt@gmail.com',
+    packages=['bv_xmla'],
+    package_dir={'bv_xmla':'bv_xmla'},
     install_requires=install_requires,
     tests_require = [
         'nose',
