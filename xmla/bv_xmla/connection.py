@@ -206,9 +206,6 @@ class XMLAConnection(object):
             self.setSessionId(None)
             self._soapheaders=None
 
-    async def connect(self):
-        pass
-
     async def close(self):
         await self.client.transport.aclose()
 

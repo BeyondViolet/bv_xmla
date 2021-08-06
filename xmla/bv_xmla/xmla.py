@@ -32,7 +32,9 @@ class XMLAProviderContextManager:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self.conn:
             await self.conn.close()
+            self.conn = None
         if exc_val:
+            self.conn = None
             raise
 
 @zope.interface.implementer(ooi.IProvider)
@@ -41,9 +43,16 @@ class XMLAProvider(object):
     def __init__(self, wsdl_url, **kwargs):
         self.wsdl_url = wsdl_url
         self.kwargs = kwargs
+        self.ctxman = XMLAProviderContextManager(self.wsdl_url, **self.kwargs)
 
     def connect(self):
-        return XMLAProviderContextManager(self.wsdl_url, **self.kwargs)
+        return XMLASource(self.wsdl_url, **self.kwargs)
+
+    def __aenter__(self):
+        return self.ctxman.__aenter__()
+
+    def __aexit__(self, exc_type, exc_val, exc_tb):
+        return self.ctxman.__aexit__(exc_type, exc_val, exc_tb)
 
 
 @zope.interface.implementer(ooi.IOLAPSchemaElement)
