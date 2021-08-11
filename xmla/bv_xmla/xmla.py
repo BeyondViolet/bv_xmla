@@ -48,11 +48,8 @@ class XMLAProvider(object):
     def connect(self):
         return XMLASource(self.wsdl_url, **self.kwargs)
 
-    def __aenter__(self):
-        return self.ctxman.__aenter__()
-
-    def __aexit__(self, exc_type, exc_val, exc_tb):
-        return self.ctxman.__aexit__(exc_type, exc_val, exc_tb)
+    def acquire(self):
+        return XMLAProviderContextManager(self.wsdl_url, **self.kwargs)
 
 
 @zope.interface.implementer(ooi.IOLAPSchemaElement)
